@@ -7,34 +7,34 @@
 
 사용자와 앨범 정보 확인
 
-    `python3 flickrd.py -k <api_key> -s <secret_key> status`
+    python3 flickrd.py -k <api_key> -s <secret_key> status
 
 모든 사진 다운로드
 
-    `python3 flickrd.py -k <api_key> -s <secret_key> all`
+    python3 flickrd.py -k <api_key> -s <secret_key> all
 
-특졍 앨범 다운로드(album-id는 `status` 명령어로 확인 가능)
+특정 앨범 다운로드(album-id는 `status` 명령어로 확인 가능)
 
-    `python3 flickrd.py -k <api_key> -s <secret_key> album <album-id>`
+    python3 flickrd.py -k <api_key> -s <secret_key> album <album-id>
 
 
 특정 기간에 촬영한 사진 다운로드
 
-    `python3 flickrd.py -k <api_key> -s <secret_key> taken 20160101 20160531`
+    python3 flickrd.py -k <api_key> -s <secret_key> taken 20160101 20160531
 
 특정 기간에 업로드한 사진 다운로드
 
-    `python3 flickrd.py -k <api_key> -s <secret_key> posted 20160601 20160607`
+    python3 flickrd.py -k <api_key> -s <secret_key> posted 20160601 20160607
 
 플리커 인증 정보 및 캐시 삭제
 
-    `python3 flickrd.py delete-cache`
+    python3 flickrd.py delete-cache
 
 
 ## 기타 옵션
 
 * -d (--download_dir) 다운로드 폴더 지정
-* -n (--naming_rule) exif 정보에 따른 생성 규칙 지정
+* -n (--naming_rule) exif 정보에 따른 파일명 생성 규칙 지정
 * -r (--subdir_rule) exif 촬영일시에 기반하여 일자별 하위 폴더 생성 규칙 지정 
 * -y 질문없이 바로 다운로드 실행
 * -h 도움말 출력

@@ -42,7 +42,7 @@
 
 ## 플리커 인증
 
-* 본인이 사용 할 [API KEY](http://www.flickr.com/services/api/) 생성 필요 
+* 본인이 사용 할 [API KEY](https://www.flickr.com/services/api/keys/) 생성 필요 
 * 비공개 사진에 접근하기 위해 Flickr OAuth 인증 필요(최초 실행 시 1회만 수행)
 
 

@@ -5,7 +5,8 @@
 
 ## 사용방법
 
-사용자와 앨범 정보 확인
+사용자와 앨범 정보 확인:
+
 `python3 flickrd.py -k <api_key> -s <secret_key> status`
 
 모든 사진 다운로드

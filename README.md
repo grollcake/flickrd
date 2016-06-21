@@ -26,6 +26,10 @@
 
     python3 flickrd.py -k <api_key> -s <secret_key> posted 20160601 20160607
 
+플리커 사진 sync 유지 (기본은 5분 단위 새로운 사진 체크)
+
+    python3 flickrd.py -k <api_key> -s <secret_key> sync
+    
 플리커 인증 정보 및 캐시 삭제
 
     python3 flickrd.py delete-cache
@@ -54,7 +58,7 @@
 [flickrd]
 api_key = <your api key>
 secret_key = <your secret key>
-download_dir = d:\flickr_photos
+download_dir = flickr_photos
 naming_rule = YYYY-MM-DD_hhmmss(camera)
 subdir_rule =
 ```
@@ -71,6 +75,7 @@ subdir_rule =
 
 ## 제약 사항
 
+* 파이썬3만 지원
 * 비디오는 다운로드 않음
 * flickr api 회수 제한으로 다운로드 중 오류 발생할 수 있음 (30분 정도 후에 재시도)
  

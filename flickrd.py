@@ -3,6 +3,7 @@
 import os
 import re
 import sys
+import time
 import codecs
 import logging
 import datetime
@@ -20,6 +21,8 @@ APPNAME = 'flickrd'
 CONFIG_FILE = 'flickrd.ini'
 LOGFILE = 'flickrd.log'
 LOGLEVEL = logging.DEBUG
+SYNC_SLEEP = 60 * 5     # 5분에 한번씩 sync
+SKIP_CHECK_CNT = 100    # 100건 연속으로 sync한 사진이 나타나야 sync 완료로 판단
 SQLITE_FILE = os.path.join(os.path.expanduser('~'), '.flickr', 'flickrd.sqlite')
 
 OPT = None
@@ -156,6 +159,7 @@ def _init():
                              'album <album-id>: 지정한 앨범번호의 모든 사진을 다운로드 한다\n' +
                              'taken <YYYYMMDD> <YYYYMMDD>: 지정한 기간에 찍은 사진을 다운로드 한다(종료일자는 생략 가능)\n' +
                              'posted <YYYYMMDD> <YYYYMMDD>: 지정한 기간에 올린 사진을 다운로드 한다(종료일자는 생략 가능)\n' +
+                             'sync: 새로 올라온 사진을 다운로드 한다\n' +
                              'delete-cache: 플리커 인증 정보와 사진 캐싱 정보를 삭제한다\n')
     parser.add_argument('-y', action='store_true', dest='yes_anyway', help='질문 없이 다운로드를 시작한다')
     parser.set_defaults(**defaults)
@@ -183,9 +187,9 @@ def _init():
     OPT.cmd = OPT.command[0].lower()  # 비교를 쉽게 하기 위해 소문자로 변경
 
     # 명령어 분석1: status와 all은 단독으로 쓰여야 한다.
-    if OPT.cmd in ['status', 'all', 'delete-cache']:
+    if OPT.cmd in ['status', 'all', 'sync', 'delete-cache']:
         if len(OPT.command) != 1:
-            LOGGER.error('status와 all은 단독으로 사용해야 합니다. 오류 지시어: {}'.format(OPT.command[1:]))
+            LOGGER.error('status, all, sync는 단독으로 사용해야 합니다. 오류 지시어: {}'.format(OPT.command[1:]))
             return 1
         if OPT.cmd == 'delete-cache':
             sys.exit(delete_cache())
@@ -227,10 +231,6 @@ def _init():
                 return 1
             OPT.eddt = OPT.command[2]
 
-        # OPT.stdt_stamp = time.mktime((datetime.datetime.strptime(OPT.stdt, '%Y%m%d') +
-        #                               datetime.timedelta(days=0, hours=9)).timetuple())
-        # OPT.eddt_stamp = time.mktime((datetime.datetime.strptime(OPT.eddt, '%Y%m%d') +
-        #                               datetime.timedelta(days=1, hours=9)).timetuple())
         time_adjust = datetime.datetime.now() - datetime.datetime.utcnow()  # 로컬시간과 UTC시간차
         OPT.stdt_stamp = datetime.datetime.strptime(OPT.stdt, '%Y%m%d')
         OPT.eddt_stamp = datetime.datetime.strptime(OPT.eddt, '%Y%m%d') + datetime.timedelta(days=1)
@@ -254,6 +254,8 @@ def user_confirm(total, album_name=''):
     cond = ''
     if OPT.cmd == 'all':
         cond = '전체 사진 {:,}장'.format(total)
+    elif OPT.cmd == 'sync':
+        cond = '신규 사진 동기화'
     elif OPT.cmd in ['taken', 'posted']:
         if OPT.stdt == OPT.eddt:
             cond = '{}-{}-{}일에 {}한 사진 {:,}장'.format(
@@ -279,7 +281,7 @@ def user_confirm(total, album_name=''):
         LOGGER.info('하위폴더: {}'.format(OPT.subdir_rule))
     LOGGER.info('파 일 명: {}.jpg (확장자는 원래 파일대로 유지)'.format(OPT.naming_rule))
 
-    return OPT.yes_anyway == True or input('\n자, 모든 준비가 됐습니다. 시작해볼까요? [Y/N]: ').lower() == 'y'
+    return OPT.yes_anyway is True or input('\n자, 모든 준비가 됐습니다. 시작해볼까요? [Y/N]: ').lower() == 'y'
 
 
 def flickr_auth():
@@ -365,10 +367,11 @@ def flickr_photo(photo_id):
 def flickr_download():
     seq = 0
     page = 0
+    last_skip = [0 for i in range(SKIP_CHECK_CNT)]  # 100회 연속 이미 sync한 파일이라면 sync 완료 처리
 
     while True:
         page += 1
-        if OPT.cmd == 'all':
+        if OPT.cmd in ['all', 'sync']:
             rsp = FLICKR.photos.search(user_id=OPT.user_id, per_page=500, page=page)
             photos = rsp['photos']
         elif OPT.cmd == 'taken':
@@ -391,7 +394,7 @@ def flickr_download():
             LOGGER.info('조건에 맞는 사진이 하나도 없습니다.')
             return 3
 
-        if page == 1:
+        if OPT.run_count == 1:
             if not user_confirm(total, title):
                 return 4
             else:
@@ -408,8 +411,11 @@ def flickr_download():
                 if not os.path.exists(os.path.dirname(localfile)):
                     os.makedirs(os.path.dirname(localfile))
 
-                LOGGER.info("({}/{}) 사진번호 {}을 다운받습니다. 파일명: {}".format(
-                    seq, total, db_photo.photo_id, localfile))
+                if OPT.cmd == 'sync':
+                    LOGGER.info("새로운 사진번호 {}을 다운받습니다. 파일명: {}".format(db_photo.photo_id, localfile))
+                else:
+                    LOGGER.info("({}/{}) 사진번호 {}을 다운받습니다. 파일명: {}".format(
+                        seq, total, db_photo.photo_id, localfile))
 
                 # 다운로드 오류 감지를 위해 임시파일로 다운받은 후에 정상 파일명으로 변경한다.
                 urlretrieve(db_photo.url, localfile + '.part', show_progressbar)
@@ -433,13 +439,17 @@ def flickr_download():
                             break
 
             elif action in ['Skip']:
-                LOGGER.info("({}/{}) 사진번호 {}는 이미 다운로드 했습니다. 파일명: {}".format(
-                    seq, total, db_photo.photo_id, localfile))
+                last_skip.pop(0)
+                last_skip.append(1)
+                if OPT.cmd != 'sync':
+                    LOGGER.info("({}/{}) 사진번호 {}는 이미 다운로드 했습니다. 파일명: {}".format(
+                        seq, total, db_photo.photo_id, localfile))
 
-        if page == pages:
+        # 마지막 페이지 또는 일정 건수가 연속으로 이미 다운로드한 사진이라면 sync 완료 처리
+        if page == pages or (OPT.cmd == 'sync' and sum(last_skip) == SKIP_CHECK_CNT):
             break
 
-    LOGGER.info('다운로드 완료했습니다. 잘 받아졌는지 확인해보세요~')
+    OPT.cmd != 'sync' and LOGGER.info('다운로드 완료했습니다. 잘 받아졌는지 확인해보세요~')
     return 0
 
 
@@ -535,12 +545,19 @@ def main():
         return rtn
 
     try:
+        OPT.run_count = 1
         if OPT.cmd == 'status':
-            rtn = flickr_status()
+            return flickr_status()
         elif OPT.cmd in ['all', 'album', 'taken', 'posted']:
-            rtn = flickr_download()
-        if rtn > 0:
-            return rtn
+            return flickr_download()
+        elif OPT.cmd == 'sync':
+            while True:
+                rtn = flickr_download()
+                if rtn > 0:
+                    return rtn
+                time.sleep(SYNC_SLEEP)
+                OPT.run_count += 1
+
     except KeyboardInterrupt:
         print('\n\n강제 종료합니다. 다운로드 중이던 사진은 확장자가 .part 상태로 남을 수 있습니다.', file=sys.stderr)
 

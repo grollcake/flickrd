@@ -6,6 +6,7 @@ import sys
 import time
 import codecs
 import logging
+import logging.handlers
 import datetime
 import argparse
 import hashlib
@@ -23,7 +24,7 @@ LOGFILE = 'flickrd.log'
 LOGLEVEL = logging.DEBUG
 SYNC_SLEEP = 60 * 5     # 5분에 한번씩 sync
 SKIP_CHECK_CNT = 100    # 100건 연속으로 sync한 사진이 나타나야 sync 완료로 판단
-SQLITE_FILE = os.path.join(os.path.expanduser('~'), '.flickr', 'flickrd.sqlite')
+SQLITE_FILE = os.path.join(os.path.expandvars('$HOME'), '.flickr', 'flickrd.sqlite')
 
 OPT = None
 LOGGER = None
@@ -96,7 +97,7 @@ def _init():
     stream_handler.setFormatter(logging.Formatter(stream_fmt, datefmt))
     stream_handler.setLevel(logging.INFO)
     file_fmt = '[%(levelname)s] [%(filename)s:%(lineno)d] %(asctime)s.%(msecs).03d> %(message)s'
-    file_handler = logging.FileHandler(LOGFILE, encoding='utf-8')
+    file_handler = logging.handlers.RotatingFileHandler(LOGFILE, maxBytes=10*1024*1024, backupCount=0, encoding='utf-8')
     file_handler.setFormatter(logging.Formatter(file_fmt, datefmt))
     file_handler.setLevel(LOGLEVEL)
     LOGGER.addHandler(stream_handler)
@@ -167,6 +168,7 @@ def _init():
     LOGGER.debug(OPT)
 
     # config file 업데이트: 한번 입력한 옵션은 두번 입력할 필요가 없도록 환경파일에 기록해둔다.
+    LOGGER.debug('Config file is {}'.format(os.path.abspath(CONFIG_FILE)))
     with open(CONFIG_FILE, 'w') as configfile:
         configfile.write('[flickrd]\n' +
                          'api_key = {}\n'.format(OPT.api_key) +
@@ -243,6 +245,7 @@ def _init():
         return 1
 
     # 데이터베이스 초기화
+    LOGGER.debug('sqlite file is {}'.format(os.path.abspath(SQLITE_FILE)))
     engine = sqlalchemy.create_engine('sqlite:///' + SQLITE_FILE)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine)()

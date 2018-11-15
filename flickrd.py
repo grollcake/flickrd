@@ -412,16 +412,16 @@ def flickr_download():
             db_photo = None
 
             # 플리커에서 오류가 자주 발생해. 3번은 시도해봐야겠어.
-            while not db_photo or retry < 3:
+            while not db_photo and retry < 3:
                 try:
                     db_photo = flickr_photo(photo['id'])
                 except:
-                    LOGGER.error("({}/{}) ERROR! photo {} {}".format(seq, total, localfile, db_photo.__dict__))
+                    LOGGER.error("({}/{}) ERROR! photo {}".format(seq, total, photo['id']))
                     retry += 1
                     sleep(60)
             
             if not db_photo:
-                LOGGER.error("({}/{}) ERROR! Skip photo {} {}".format(seq, total, localfile, db_photo.__dict__))
+                LOGGER.error("({}/{}) ERROR! photo {}".format(seq, total, photo['id']))
                 continue
 
             localfile, action, files = make_local_filename(db_photo)

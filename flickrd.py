@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import configparser
 from urllib.request import urlretrieve
+from time import sleep
 
 import flickrapi
 import sqlalchemy
@@ -403,9 +404,26 @@ def flickr_download():
             else:
                 LOGGER.info('\n')
 
+        OPT.run_count += 1
+
         for photo in photos['photo']:
             seq += 1
-            db_photo = flickr_photo(photo['id'])
+            retry = 0
+            db_photo = None
+
+            # 플리커에서 오류가 자주 발생해. 3번은 시도해봐야겠어.
+            while not db_photo or retry < 3:
+                try:
+                    db_photo = flickr_photo(photo['id'])
+                except:
+                    LOGGER.error("({}/{}) ERROR! photo {} {}".format(seq, total, localfile, db_photo.__dict__))
+                    retry += 1
+                    sleep(60)
+            
+            if not db_photo:
+                LOGGER.error("({}/{}) ERROR! Skip photo {} {}".format(seq, total, localfile, db_photo.__dict__))
+                continue
+
             localfile, action, files = make_local_filename(db_photo)
             LOGGER.debug("({}/{}) photo {} {}".format(seq, total, localfile, db_photo.__dict__))
 
